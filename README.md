@@ -5,5 +5,5 @@ Check it out on CodePen: https://codepen.io/bradylambert/pen/JrpgWM
 
 
 ## Future
-I plan to add more controlled animation, including (hopefully) smooth animations between two separate coordinate systems.
-I might also add user interactivity, potentially using methods similar to this ControllableCurve demonstration: https://codepen.io/bradylambert/pen/mBeWPW
+* I plan to add more controlled animation, including (hopefully) smooth animations between two separate coordinate systems.
+* I might also add user interactivity, potentially using methods similar to this ControllableCurve demonstration: https://codepen.io/bradylambert/pen/mBeWPW
