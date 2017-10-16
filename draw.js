@@ -16,7 +16,7 @@ function setup() {
 	var yParamNeat = new CoordinateParameter(50, -height/2, height/2, 10, height/1.8);
 	neat = new Coordinate(uFuncNeat, vFuncNeat, xParamNeat, yParamNeat);
 	
-	// noLoop();
+	noLoop();
 }
 
 
@@ -36,46 +36,19 @@ function draw() {
 	pop();
 	
 	
-	if (t >= 0 && t < tStep) {
-		parabolic.render();
-	} else if (t >= tStep && t < 2*tStep) {
+// 	if (t >= 0 && t < tStep) {
+// 		parabolic.render();
+// 	} else if (t >= tStep && t < 2*tStep) {
 		polar.render();
-	} else if (t >= 2*tStep && t < 3*tStep) {
-		cartesian.render();
-	} else if (t >= 3*tStep && t < 4*tStep) {
-		neat.render();
-	} else {
-		t = 0;
-	}
+// 	} else if (t >= 2*tStep && t < 3*tStep) {
+// 		cartesian.render();
+// 	} else if (t >= 3*tStep && t < 4*tStep) {
+// 		neat.render();
+// 	} else {
+// 		t = 0;
+// 	}
 	
-	t += dt;
-}
-
-// arguments: (arr: array of vectors, showVertices: bool - should vertices be displayed?)
-var addCurve = function(arr, showVertices) {
-
-	noFill();
-	beginShape();
-	
-	// control points included as curve vertices
-	for (var i = 0; i < arr.length; i++) {
-		curveVertex(arr[i].x, arr[i].y);
-		
-		if (showVertices == true) {
-			// add circles marking points for testing
-			push();
-			// make control points red
-			if (i == 0 || i == arr.length-1) {
-				fill(255,0,0);
-			}
-			if (i != 0 && i != arr.length-1){
-				ellipse(arr[i].x,arr[i].y,10,10);
-			}
-			pop();
-		}
-	}
-	
-	endShape();
+// 	t += dt;
 }
 
 // arguments: (required: numSteps, required: start, required: stop, required: newStart, required: newStop)
@@ -91,7 +64,6 @@ var CoordinateParameter = function(numSteps, start, stop, newStart, newStop) {
 	// new coordinate range to map to, i.e. theta=[0,TWO_PI] in polar coordinates
 	this.newStart = newStart;
 	this.newStop = newStop;
-	
 }
 
 CoordinateParameter.prototype.getStepSize = function() {
@@ -106,6 +78,7 @@ var Coordinate = function(uFunction, vFunction, parameter) {
 	this.vFunc = vFunction;
 	
 	this.parameters = [];
+	this.curves = [];
 	
 	// any arguments after uFunction and vFunction added to array of CoordinateParameter objects
 	for (var i = 2; i < arguments.length; i++) {
@@ -165,31 +138,82 @@ Coordinate.prototype.addParameter = function(numSteps, start, stop, newStart, ne
 	
 }
 
-// possibly change to parameter method that adds properties to Parameter
-// get increment, init, and condition values by passing through starting uFunc and vFunc to enable transformations from any starting coordinate system
-var loopParam = function(parameter, paramOrder, loopOrder) {
-	// are paramOrder and loopOrder properties needed??
-	this.paramOrder = paramOrder;
-	this.increment = parameter.getStepSize();
-	this.init = parameter.start - this.increment;
-	this.condition = parameter.stop + this.increment;
-	// used as dummy variable in nested for loops
-	this.var;
+Coordinate.prototype.getCoordinate = function() {
+		
+	var p = this.parameters;
+
+	// sets range of new parameter values
+	// use this same technique to start from arbitrary coordinate system (right now it's stepping through cartesian coordinates)
+	var newX = map(p[0].var, p[0].start, p[0].stop, p[0].newStart, p[0].newStop);
+	var newY = map(p[1].var, p[1].start, p[1].stop, p[1].newStart, p[1].newStop);
+
+	var coordinate = createVector(this.uFunc(newX,newY), this.vFunc(newX,newY));
+
+	// scales or translates entire uv-coordinate system
+	coordinate.x = map(coordinate.x, p[0].start, p[0].stop, this.uStart, this.uStop);
+	coordinate.y = map(coordinate.y, p[1].start, p[1].stop, this.vStart, this.vStop);
+
+	return coordinate;
+	
 }
+
+Coordinate.prototype.getCurves = function(i, recursiveCurve) {
+	
+	// initialize i to 0 on first call
+	if (!i) { i = 0; }
+	
+	var curves = [];
+
+	var transformParamIndex = this.parameters.indexOf(this.transformParams[i]);
+	var param = this.parameters[transformParamIndex];
+	
+	var step = param.getStepSize();
+	var condition = param.stop + step;
+	param.var = param.start - step;
+	
+	// recursion loop acting as dynamically nested for loops, where number of for loops is determined by length of transformParams array (i.e., number of arguments passed into addCurveSet method)
+	while (param.var <= condition) {
+
+		// innermost loop
+		if (i == this.transformParams.length-1) {
+			recursiveCurve.push(this.getCoordinate());
+		// second to last loop
+		} else if (i == this.transformParams.length-2) {
+			var curve = [];
+			this.getCurves(i+1, curve);
+			curves.push(curve);
+		} else {
+			this.getCurves(i+1);	
+		}
+
+		param.var += step;
+	}
+	
+	//remove first and last curves, which are made up of control points and shouldn't be rendered
+	curves.shift();
+	curves.pop();
+	
+	return curves;
+}
+
+
+// var CurveSet = function() {
+	
+// }
 
 // arguments: (required: varyingParam, optional: constantParam - add any number parameters)
 // pass in this.parmeters index values as arguments instead???
-Coordinate.prototype.transform = function(varyingParam, constantParam) {
+Coordinate.prototype.addCurveSet = function(varyingParam, constantParam) {
 
 	// should these be somewhare else??? right now it's set to map everything to where it began
-	// add rotation option
+	// add rotation, translate options
 	// add 'normalize == true' scaling option to fit coordinates inside canvas
-	var scale = 1;
-	var translate = 0;  // only translates if all are the same, but possible to pin sides down
-	this.uStart = scale*this.parameters[0].start + translate;
-	this.uStop = scale*this.parameters[0].stop + translate;
-	this.vStart = scale*this.parameters[1].start + translate;
-	this.vStop = scale*this.parameters[1].stop + translate;
+	var scale = [1, 1, 1, 1];
+	var stretch = [0, 0, 0, 0];
+	this.uStart = scale[0]*this.parameters[0].start + stretch[0];
+	this.uStop = scale[1]*this.parameters[0].stop + stretch[1];
+	this.vStart = scale[2]*this.parameters[1].start + stretch[2];
+	this.vStop = scale[3]*this.parameters[1].stop + stretch[3];
 	
 	
 	this.varyingParam = varyingParam;
@@ -205,97 +229,59 @@ Coordinate.prototype.transform = function(varyingParam, constantParam) {
 			this.transformParams.push(varyingParam);
 		}
 	}
-	
-	var getCoordinate = function(loopParams) {
-		
-		var p = this.parameters;
-		
-		// sets range of new parameter values
-		// use this same technique to start from arbitrary coordinate system (right now it's stepping through cartesian coordinates)
-		var newX = map(loopParams[0].var, p[0].start, p[0].stop, p[0].newStart, p[0].newStop);
-		var newY = map(loopParams[1].var, p[1].start, p[1].stop, p[1].newStart, p[1].newStop);
-		
-		var coordinate = createVector(this.uFunc(newX,newY), this.vFunc(newX,newY));
-		
-		// scales or translates entire uv-coordinate system
-		coordinate.x = map(coordinate.x, p[0].start, p[0].stop, this.uStart, this.uStop);
-		coordinate.y = map(coordinate.y, p[1].start, p[1].stop, this.vStart, this.vStop);
 
-		return coordinate;
+	var curves = this.getCurves();
+	
+	this.curveSets.push(curves);
+	return curves;
+}
+
+// arguments: (arr: array of vectors, showVertices: bool - should vertices be displayed?)
+var drawCurve = function(curveCoordinates, showVertices) {
+
+	noFill();
+	beginShape();
+	
+	// control points included as curve vertices
+	for (var i = 0; i < curveCoordinates.length; i++) {
+		curveVertex(curveCoordinates[i].x, curveCoordinates[i].y);
 		
-	}.bind(this);
-	
-	
-	var curveArr = [];
-	
-	var loopParams = [];
-	for (var i = 0; i < this.parameters.length; i++) {
-		var paramOrder = i;
-		loopParams.push(new loopParam(this.parameters[i], paramOrder));
+		if (showVertices == true) {
+			// add circles marking vertices
+			push();
+			// make control points red
+			if (i == 0 || i == curveCoordinates.length-1) {
+				fill(255,0,0);
+			}
+			if (i != 0 && i != curveCoordinates.length-1){
+				ellipse(arr[i].x,curveCoordinates[i].y,10,10);
+			}
+			pop();
+		}
 	}
 	
-	var curveArr = [];
-	var loop = function(i, curveArg) {
-		// initialize i to 0 on first call
-		if (!i) {
-			i = 0;
-		}
-		var index = this.parameters.indexOf(this.transformParams[i]);
-		var loopParam = loopParams[index];
-		loopParam.var = loopParam.init;
-		while (loopParam.var <= loopParam.condition) {
-			
-			// innermost loop
-			if (i == this.transformParams.length-1) {
-				curveArg.push(getCoordinate(loopParams));
-			// second to last loop
-			} else if (i == this.transformParams.length-2) {
-				var curve = [];
-				loop(i+1, curve);
-				curveArr.push(curve);
-			} else {
-				loop(i+1);	
-			}
-			
-			loopParam.var += loopParam.increment;
-		}
-	}.bind(this)
-
-	loop();
-	
-	
-	// let index = this.parameters.indexOf(this.constantParams[0]);
-	// let ob = loopParams[index];
-	// for (ob.var = ob.init; ob.var <= ob.condition; ob.var += ob.increment) {
-	// 	var curve = [];
-	// 	let index = this.parameters.indexOf(this.varyingParam);
-	// 	let ob = loopParams[index];
-	// 	for (ob.var = ob.init; ob.var <= ob.condition; ob.var += ob.increment) {
-	// 		curve.push(getCoordinate(loopParams));	
-	// 	}
-	// 	curveArr.push(curve);
-	// }
-	
-	//remove first and last curves, which are made up of control points and shouldn't be rendered
-	curveArr.shift();
-	curveArr.pop();
-	
-	return curveArr;
+	endShape();
 }
 
 Coordinate.prototype.render = function(showVertices) {
-	// x-curves: lines of constant y
-	this.xCurves = this.transform(this.parameters[0], this.parameters[1]);
-	// y-curves: lines of constant x
-	this.yCurves = this.transform(this.parameters[1], this.parameters[0]);
-	// example of 3D z-curve call
-	// this.zCurves = this.transform(this.parameters[2], this.parameters[0], this.parameters[1]);
-
-	for (var i = 0; i < this.xCurves.length; i++) {
-		addCurve(this.xCurves[i], showVertices);
-	}
-	for (var i = 0; i < this.yCurves.length; i++) {
-		addCurve(this.yCurves[i], showVertices);
-	}
 	
+	this.curveSets = [];
+	
+	// x-curves: lines of constant y
+	this.addCurveSet(this.parameters[0], this.parameters[1]);
+	// y-curves: lines of constant x
+	this.addCurveSet(this.parameters[1], this.parameters[0]);
+	// example of 3D z-curve call
+	// this.addCurveSet(this.parameters[2], this.parameters[0], this.parameters[1]);
+
+	// this.curves[i][j][k].x
+	// this.curveSets[i] is an array of curve arrays, that represesents a set of x-curves, y-curves, etc. In other words, each object in the array is (probably) uniquely defined by the varying parameter used in the addCurveSet() method
+	// this.curveSets[i][j] is an array of vectors that represents a single curve to be rendered using drawCurve()
+	// this.curveSets[i][j][k] is a vector representing a curve coordinate
+	for (var i = 0; i < this.curveSets.length; i++) {
+		for (var j = 0; j < this.curveSets[i].length; j++) {
+			drawCurve(this.curveSets[i][j], showVertices);
+		}
+	}
+
 }
