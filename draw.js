@@ -1,5 +1,6 @@
 var cartesian, polar, parabolic, neat, wavyPolar;
-var testCurve;
+var testCurve, newCurve;
+var tSetup;
 function setup() {
 	
 	// default is 60 fps
@@ -13,11 +14,11 @@ function setup() {
 	parabolic = new Coordinate('parabolic');
 
 	// NEAT THING //
-	var uFuncNeat = (x, y) => .9*(x*y/250 + 10*cos(x/2)*sin(x/2));
-	var vFuncNeat = (x, y) => .9*(-.004*sq(x) + 2*cos(y)) + height/2.2;
-	var xParamNeat = new CoordinateParameter(50, -width/2, width/2);
-	var yParamNeat = new CoordinateParameter(50, 10, height/1.8);
-	neat = new Coordinate(uFuncNeat, vFuncNeat, xParamNeat, yParamNeat);
+	var xFuncNeat = (x, y) => .9*(x*y/250 + 10*cos(x/2)*sin(x/2));
+	var yFuncNeat = (x, y) => .9*(-.004*sq(x) + 2*cos(y)) + height/2.2;
+	var xParamNeat = new CoordinateParameter(xFuncNeat, 50, -width/2, width/2);
+	var yParamNeat = new CoordinateParameter(yFuncNeat, 50, 10, height/1.8);
+	neat = new Coordinate(xParamNeat, yParamNeat);
 	
 	// WAVY POLAR //
 	var amp = 0;
@@ -26,86 +27,116 @@ function setup() {
 	var fy1 = (x,y) => .3*sin(x)+y;
 	var fx2 = (x,y) => x*cos(y);
 	var fy2 = (x,y) => x*sin(y);
-	var uFuncWavyPolar = (x,y) => fx2(fx1(x,y),fy1(x,y));
-	var vFuncWavyPolar = (x,y) => fy2(fx1(x,y),fy1(x,y));
-	wavyPolar = new Coordinate(uFuncWavyPolar, vFuncWavyPolar);
-	wavyPolar.addParameter(10, 0, height/2);
-	wavyPolar.addParameter(40, 0, TWO_PI);
+	var xFuncWavyPolar = (x,y) => fx2(fx1(x,y),fy1(x,y));
+	var yFuncWavyPolar = (x,y) => fy2(fx1(x,y),fy1(x,y));
+	wavyPolar = new Coordinate();
+	wavyPolar.addParameter(xFuncWavyPolar, 10, 0, height/2);
+	wavyPolar.addParameter(yFuncWavyPolar, 40, 0, TWO_PI);
 	
 	var coordinateArr = [cartesian, polar, parabolic, neat, wavyPolar];
 	for (var i = 0; i < coordinateArr.length; i++) {
 		var co = coordinateArr[i];
-		co.addCurveSet(co.parameters[0],co.parameters[1]);
-		co.addCurveSet(co.parameters[1],co.parameters[0]);
+		co.addCurveSet(co.parameters, 0, 1);
+		co.addCurveSet(co.parameters, 1, 0);
 	}
 	
-	// var xFunc = (x) => 200*cos(x);
+	// add Coordinate and axis arguments to Curve, or maybe a global CoordinateMode variable?
+	// add parameter as option for Curve arguments
 	var xFunc = (x) => x;
-	var yFunc = (x) => 200*sin(10*x/30);
-	testCurve = new Curve(5000, 0, 30*TWO_PI, xFunc, yFunc);
-
+	var yFunc = (y) => 10*sin(10*y/30);
+	
 	var co = polar;
-
-	testCurve.transform(co.uFunc, testCurve.xMin, testCurve.xMax, co.parameters[0].start, co.parameters[0].stop, co.vFunc, testCurve.yMin, testCurve.yMax, co.parameters[1].start, co.parameters[1].stop);
-		
-		// noLoop();
+	var p = co.parameters;
+	
+	testCurve = new Curve(1000, 0, 30*TWO_PI, xFunc, yFunc);
+	// testCurve.map('y', testCurve.getMin('y'), testCurve.getMax('y'), p[1].start, p[1].stop);
+	
+	initialCurve = new Curve(testCurve.numSteps, testCurve.start, testCurve.stop, testCurve.func1, testCurve.func2);
+	initialCurve.map('y', initialCurve.getMin('y'), initialCurve.getMax('y'), p[1].start, p[1].stop);
+	
+	// testCurve.transform(p[0].func, p[1].func);
+	
+	// noLoop();
+	tSetup = millis();
 	
 }
 
-// global draw variables
-var dt = .1;
-var t = 0;
-var tStep = 20;
-var count = 0;
-var mult = 1;
 function draw() {
 	
 	background(230);
 
 	// axes
 	push();
-	stroke(255,0,0,120);
+	stroke(255, 0, 0, 120);
 	strokeWeight(4);
 	line(-width/2, 0, width/2, 0);
 	line(0, -height/2, 0, height/2);
 	pop();
 	
-//////////////////////////////////////////////
-	if (t >= 0 && t < tStep) {
-		parabolic.render();
-	} else if (t >= tStep && t < 2*tStep) {
-		polar.render();
-	} else if (t >= 2*tStep && t < 3*tStep) {
-		wavyPolar.render();
-	} else if (t >= 3*tStep && t < 4*tStep) {
-		cartesian.render();
-	} else if (t >= 4*tStep && t < 5*tStep) {
-		neat.render();
-	} else if (t >= 5*tStep && t < 6*tStep) {
-		testCurve.render();
-	} else {
-		t = 0;
+	/////////////////////////////////////////
+	var co = polar;
+	var p = co.parameters;
+	
+	var xFinalArr = [];
+	var yFinalArr = [];
+	for (var i = 0; i < initialCurve.vertices.length; i++) {
+		xFinalArr.push(p[0].func(initialCurve.vertices[i].x, initialCurve.vertices[i].y));
+		yFinalArr.push(p[1].func(initialCurve.vertices[i].x, initialCurve.vertices[i].y));
 	}
-	t += dt;
+	
+	var t = millis() - tSetup;
+	
+	// n = number of keyframes that get animated per iteration
+	var n = 120;
+	var iterations = 2;
+	var fpKeyframe = 1;
+	var frameTotal = n*fpKeyframe*iterations;
+	if (frameCount <= frameTotal) {
+		
+		// count = [0, (n*iterations - 1)] = [1, (frameTotal/fpKeyframe - 1)]
+		var count = floor((frameCount-1)/fpKeyframe);
+		
+		// keyframe = [0, n-1]
+		var keyframe = count % n;
+		
+		var xValArr = [];
+		var yValArr = [];
+		for (var i = 0; i < initialCurve.vertices.length; i++) {
+			var vertex = initialCurve.vertices[i];
+			xValArr.push(vertex.x + keyframe*(xFinalArr[i]-vertex.x)/(n-1));
+			yValArr.push(vertex.y + keyframe*(yFinalArr[i]-vertex.y)/(n-1));
+		}
+	
+		newCurve = new Curve(initialCurve.numSteps, initialCurve.start, initialCurve.stop, initialCurve.func1, initialCurve.func2);
+		
+		// doesn't show mappings
+		// newCurve.render();
+	
+		for (var i = 0; i < newCurve.vertices.length; i++){
+			newCurve.vertices[i].x = xValArr[i];
+			newCurve.vertices[i].y = yValArr[i];
+		}
+	}
+	
+	newCurve.render();
+	
+//////////////////////////////////////////////
+// 	parabolic.render();
+	// polar.render();
+	// wavyPolar.render();
+// 	cartesian.render();
+	// neat.render();
+	// testCurve.render();
 //////////////////////////////////////////////	
-	
-//////////////////////////////////////////////
-// 	// uncomment for animation stepping through curves of chosen coordinate system (co)
-// 	var co = parabolic;
-// 	var countStep = 3;
-// 	var i = floor(count) % co.curveSets[0].curves.length;
-// 	var j = floor(count) % co.curveSets[1].curves.length;
-// 	count += 1/countStep;
-	
-// 	co.curveSets[0].curves[i].render();
-// 	co.curveSets[1].curves[j].render();
-//////////////////////////////////////////////
 
 }
 
 // arguments: (required: numSteps, required: start, required: stop)
-var CoordinateParameter = function(numSteps, start, stop) {
-		
+var CoordinateParameter = function(func, numSteps, start, stop) {
+	
+	// function used for transformations
+	this.func = func;
+	
 	// incremented value for coordinate line calculations, number of curves will be (numSteps+1)
 	this.numSteps = numSteps;
 
@@ -119,14 +150,14 @@ CoordinateParameter.prototype.getStepSize = function() {
 	return (this.stop - this.start)/this.numSteps;
 }
 
-var transform = function(coordinate, uFunction, vFunction) {
+var transform = function(vertex, xFunc, yFunc) {
 	
-	var x = uFunction(coordinate.x, coordinate.y);
-	var y = vFunction(coordinate.x, coordinate.y);
+	var x = xFunc(vertex.x, vertex.y);
+	var y = yFunc(vertex.x, vertex.y);
 	
-	coordinate.x = x;
-	coordinate.y = y;
-	return coordinate;
+	vertex.x = x;
+	vertex.y = y;
+	return vertex;
 	
 }
 
@@ -137,24 +168,11 @@ var Curve = function(numSteps, start, stop, func1, func2, param) {
 	this.start = start;
 	this.stop = stop;
 	
+	this.func1 = func1;
+	this.func2 = func2;
+	
 	this.setVertices(func1, func2, param);
 	
-	var xArr = this.vertices.map(vertex => vertex.x);
-	var yArr = this.vertices.map(vertex => vertex.y);
-
-	this.xMin = min(xArr);
-	this.xMax = max(xArr);
-	this.yMin = min(yArr);
-	this.yMax = max(yArr);
-	
-	if (this.xMin == this.xMax) {
-		this.xMin = start;
-		this.xMax = stop;
-	}
-	if (this.yMin == this.yMax) {
-		this.yMin = start;
-		this.yMax = stop;
-	}
 }
 
 Curve.prototype.getStepSize = function() {
@@ -165,6 +183,15 @@ Curve.prototype.getControlStart = function() {
 }
 Curve.prototype.getControlStop = function() {
 	return this.stop + this.getStepSize();
+}
+
+Curve.prototype.getMin = function(property) {
+	var propertyArr = this.vertices.map(vertex => vertex[property]);
+	return min(propertyArr);
+}
+Curve.prototype.getMax = function(property) {
+	var propertyArr = this.vertices.map(vertex => vertex[property]);
+	return max(propertyArr);
 }
 
 Curve.prototype.setVertices = function(func1, func2, param) {
@@ -181,14 +208,24 @@ Curve.prototype.setVertices = function(func1, func2, param) {
 	
 }
 
-Curve.prototype.transform = function(func1, start1, stop1, newStart1, newStop1, func2, start2, stop2, newStart2, newStop2) {
+Curve.prototype.map = function(property, start, stop, newStart, newStop) {
 	
 	for (var i = 0; i < this.vertices.length; i++) {
 		var vertex = this.vertices[i];			 
-		vertex.x = map(vertex.x, start1, stop1, newStart1, newStop1);
-		vertex.y = map(vertex.y, start2, stop2, newStart2, newStop2);
-		transform(this.vertices[i], func1, func2);
+		vertex[property] = map(vertex[property], start, stop, newStart, newStop);
 	}
+	
+	return this.vertices;
+	
+}
+
+Curve.prototype.transform = function(func1, func2) {
+	
+	for (var i = 0; i < this.vertices.length; i++) {
+		this.vertices[i] = transform(this.vertices[i], func1, func2);
+	}
+	
+	return this.vertices;
 	
 }
 
@@ -205,78 +242,82 @@ Curve.prototype.render = function(showVertices) {
 		if (showVertices == true) {
 			// add circles marking vertices
 			push();
-			// make control points red
-			if (i == 0 || i == this.vertices.length-1) {
-				fill(255,0,0);
-				ellipse(this.vertices[i].x,this.vertices[i].y,8,8);
-			}
-			if (i != 0 && i != this.vertices.length-1){
-				ellipse(this.vertices[i].x,this.vertices[i].y,8,8);
+			if (i > 0 && i < this.vertices.length-1){
+				ellipse(this.vertices[i].x, this.vertices[i].y, 8, 8);
 			}
 			pop();
 		}
+	}
+	if (showVertices == true) {
+		// add circles marking control points with different style
+		push();
+		fill(255, 0, 0);
+		var controlPoint1 = this.vertices[0];
+		var controlPoint2 = this.vertices[this.vertices.length-1];
+		ellipse(controlPoint1.x, controlPoint1.y, 8, 8);
+		ellipse(controlPoint2.x, controlPoint2.y, 8, 8);
+		pop();
 	}
 	
 	endShape();
 	
 }
 
-var CurveSet = function(varyingParam, constantParam) {
+var CurveSet = function(paramArr, varyingParamIndex, constantParamIndex) {
 	
-	this.varyingParam = varyingParam;
-	// any arguments after constantParam added to array of CoordinateParameter objects
+	this.parameters = paramArr;
+	
+	this.varyingParam = paramArr[varyingParamIndex];
 	this.constantParams = [];
 	this.transformParams = [];
-	for (var i = 1; i < arguments.length; i++) {
+	for (var i = 2; i < arguments.length; i++) {
 		
-		this.constantParams.push(arguments[i]);
+		this.constantParams.push(paramArr[arguments[i]]);
 		
-		this.transformParams.push(arguments[i]);
+		this.transformParams.push(paramArr[arguments[i]]);
 		if (i == arguments.length-1) {
-			this.transformParams.push(varyingParam);
+			this.transformParams.push(this.varyingParam);
 		}
 	}
 	
 	this.curves = [];
+	this.setCurves();
 	
 }
 
-CurveSet.prototype.addCurves = function(thisCoordinate, i) {
+CurveSet.prototype.setCurves = function(i) {
 	
 	// initialize i to 0 on first call
 	if (!i) { i = 0; }
 	
 	var curves = [];
-
-	var transformParamIndex = thisCoordinate.parameters.indexOf(this.transformParams[i]);
-	var parameter = thisCoordinate.parameters[transformParamIndex];
+	
+	var transformParamIndex = this.parameters.indexOf(this.transformParams[i]);
+	var parameter = this.parameters[transformParamIndex];
 	
 	var step = parameter.getStepSize();
 	var condition = parameter.stop + step;
 	parameter.val = parameter.start - step;
 	
-	// recursion loop acting as dynamically nested for loops, where number of for loops is determined by length of transformParams array (i.e., number of arguments passed into addCurveSet method)
+	// recursion loop acting as dynamically nested for loops, where number of for loops is determined by length of transformParams array
 	while (parameter.val <= condition) {
 
 		// second to last loop
 		if (i == this.transformParams.length-2) {
 			
-			var p = thisCoordinate.parameters;
-			
-			var transformParamIndex = p.indexOf(this.transformParams[i+1]);
-			var transformParam = p[transformParamIndex];
+			var transformParamIndex = this.parameters.indexOf(this.transformParams[i+1]);
+			var transformParam = this.parameters[transformParamIndex];
 			
 			// innermost loop
-			var xFunc = (x) => p[0].val;
-			var yFunc = (y) => p[1].val;
+			var xFunc = (x) => this.parameters[0].val;
+			var yFunc = (y) => this.parameters[1].val;
 			var curve = new Curve(transformParam.numSteps, transformParam.start, transformParam.stop, xFunc, yFunc, transformParam);
-
-			curve.transform(thisCoordinate.uFunc, p[0].start, p[0].stop, p[0].start, p[0].stop, thisCoordinate.vFunc, p[1].start, p[1].stop, p[1].start, p[1].stop);
-
+			curve.transform(this.parameters[0].func, this.parameters[1].func);
+			
 			curves.push(curve);
 			
 		} else {
-			this.addCurves(thisCoordinate, i+1);	
+			this.setCurves(i+1);
 		}
 
 		parameter.val += step;
@@ -300,87 +341,74 @@ CurveSet.prototype.render = function(showVertices) {
 	
 }
 
-// arguments (required: ufunction, required: vfunction, optional: CoordinateParameter - add any number parameters)
+// arguments (required: parameter - add any number CoordinateParameter objects)
 // OR pass in a string to get a default Coordinate. options: 'cartesian', 'polar', 'parabolic'
-var Coordinate = function(uFunction, vFunction, parameter) {
-	
-	this.uFunc = uFunction;
-	this.vFunc = vFunction;
+var Coordinate = function(parameter) {
 	
 	this.parameters = [];
 	this.curveSets = [];
 	
-	// any arguments after uFunction and vFunction added to array of CoordinateParameter objects
-	for (var i = 2; i < arguments.length; i++) {
-		this.parameters.push(arguments[i]);
-	}
-	
-	if ( typeof(uFunction) === 'string' ) {
-		var coordinateType = uFunction;
+	if ( typeof(parameter) === 'string' ) {
+		
+		var coordinateType = parameter;
 		this.setDefault(coordinateType);
-	}
-	
+		
+	} else {
+		
+		for (var i = 0; i < arguments.length; i++) {
+			this.parameters.push(arguments[i]);
+		}	
+		
+	}	
 }
 
 Coordinate.prototype.setDefault = function(coordinateType) {
 	
 	if (coordinateType == 'cartesian') {
 		
-		this.uFunc = (x, y) => x;
-		this.vFunc = (x, y) => y;
-		this.addParameter(40, -width/2, width/2, -width/2, width/2);
-		this.addParameter(40, -height/2, height/2, -height/2, height/2);
+		var xFunc = (x, y) => x;
+		var yFunc = (x, y) => y;
+		this.addParameter(xFunc, 40, -width/2, width/2);
+		this.addParameter(yFunc, 40, -height/2, height/2);
 		
 	} else if (coordinateType == 'polar') {
 
-		this.uFunc = (x, y) => x*cos(y);
-		this.vFunc = (x, y) => x*sin(y);
-		this.addParameter(10, 0, height/2);
-		this.addParameter(48, 0, TWO_PI);
+		var xFunc = (x, y) => x*cos(y);
+		var yFunc = (x, y) => x*sin(y);
+		this.addParameter(xFunc, 10, 0, height/2);
+		this.addParameter(yFunc, 48, 0, TWO_PI);
 		
 	} else if (coordinateType == 'parabolic') {
 		
 		var scalefactor = .0035;
-		this.uFunc = (x, y) => scalefactor*( x*y );
-		this.vFunc = (x, y) => scalefactor*( (sq(y)-sq(x))/2 );
-		this.addParameter(30, -width/2, width/2);
-		this.addParameter(30, -width/2, width/2);
+		var xFunc = (x, y) => scalefactor*( x*y );
+		var yFunc = (x, y) => scalefactor*( (sq(y)-sq(x))/2 );
+		this.addParameter(xFunc, 30, -width/2, width/2);
+		this.addParameter(yFunc, 30, -width/2, width/2);
 		
 	}
 	
 }
 
 // 1 argument: (required: CoordinateParameter object)
-// OR 5 arguments: (required: numSteps, required: start, required: stop)
-Coordinate.prototype.addParameter = function(numSteps, start, stop) {
+// OR 4 arguments: (required: numSteps, required: start, required: stop)
+Coordinate.prototype.addParameter = function(func, numSteps, start, stop) {
 
 	if (arguments.length == 1) {
 		// if only one argument is given, it will be a CoordinateParameter object
 		var parameter = arguments[0];
 	} else {
-		var parameter = new CoordinateParameter(numSteps, start, stop);
+		var parameter = new CoordinateParameter(func, numSteps, start, stop);
 	}
 	
 	this.parameters.push(parameter);
 	return parameter;
 }
 
-// arguments: (required: varyingParam, optional: constantParam - add any number parameters)
-// pass in this.parmeters index values as arguments instead???
-Coordinate.prototype.addCurveSet = function(varyingParam, constantParam) {
-
-	// should these be somewhare else??? right now it's set to map everything to where it began
-	// add rotation, translate options
-	// add 'normalize == true' scaling option to fit coordinates inside canvas
-	// var scale = [1, 1, 1, 1];
-	// var stretch = [0, 0, 0, 0];
-	// this.uStart = scale[0]*this.parameters[0].start + stretch[0];
-	// this.uStop = scale[1]*this.parameters[0].stop + stretch[1];
-	// this.vStart = scale[2]*this.parameters[1].start + stretch[2];
-	// this.vStop = scale[3]*this.parameters[1].stop + stretch[3];
+// arguments: (required: paramArr, required: varyingParamIndex, optional: constantParamIndex - add any number parameter indeces)
+Coordinate.prototype.addCurveSet = function(paramArr, varyingParamIndex, constantParamIndex) {
 	
 	var curveSet = new CurveSet(...arguments);
-	curveSet.addCurves(this);
 
 	this.curveSets.push(curveSet);
 	return curveSet;
