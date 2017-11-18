@@ -13,51 +13,58 @@ function setup() {
 	polar = new Coordinate('polar');
 	parabolic = new Coordinate('parabolic');
 
-	// NEAT THING //
-	var xFuncNeat = (x, y) => .9*(x*y/250 + 10*cos(x/2)*sin(x/2));
-	var yFuncNeat = (x, y) => .9*(-.004*sq(x) + 2*cos(y)) + height/2.2;
-	var xParamNeat = new CoordinateParameter(xFuncNeat, 50, -width/2, width/2);
-	var yParamNeat = new CoordinateParameter(yFuncNeat, 50, 10, height/1.8);
-	neat = new Coordinate(xParamNeat, yParamNeat);
+// 	// NEAT THING //
+// 	var xFuncNeat = (x, y) => .9*(x*y/250 + 10*cos(x/2)*sin(x/2));
+// 	var yFuncNeat = (x, y) => .9*(-.004*sq(x) + 2*cos(y)) + height/2.2;
+// 	var xParamNeat = new CoordinateParameter(xFuncNeat, 50, -width/2, width/2);
+// 	var yParamNeat = new CoordinateParameter(yFuncNeat, 50, 10, height/1.8);
+// 	neat = new Coordinate(xParamNeat, yParamNeat);
 	
-	// WAVY POLAR //
-	var amp = 0;
-	var n = 1;
-	var fx1 = (x,y) => amp*cos(n*y) + x;
-	var fy1 = (x,y) => .3*sin(x)+y;
-	var fx2 = (x,y) => x*cos(y);
-	var fy2 = (x,y) => x*sin(y);
-	var xFuncWavyPolar = (x,y) => fx2(fx1(x,y),fy1(x,y));
-	var yFuncWavyPolar = (x,y) => fy2(fx1(x,y),fy1(x,y));
-	wavyPolar = new Coordinate();
-	wavyPolar.addParameter(xFuncWavyPolar, 10, 0, height/2);
-	wavyPolar.addParameter(yFuncWavyPolar, 40, 0, TWO_PI);
+// 	// WAVY POLAR //
+// 	var amp = 0;
+// 	var n = 1;
+// 	var fx1 = (x,y) => amp*cos(n*y) + x;
+// 	var fy1 = (x,y) => .3*sin(x)+y;
+// 	var fx2 = (x,y) => x*cos(y);
+// 	var fy2 = (x,y) => x*sin(y);
+// 	var xFuncWavyPolar = (x,y) => fx2(fx1(x,y),fy1(x,y));
+// 	var yFuncWavyPolar = (x,y) => fy2(fx1(x,y),fy1(x,y));
+// 	wavyPolar = new Coordinate();
+// 	wavyPolar.addParameter(xFuncWavyPolar, 10, 0, height/2);
+// 	wavyPolar.addParameter(yFuncWavyPolar, 40, 0, TWO_PI);
 	
-	var coordinateArr = [cartesian, polar, parabolic, neat, wavyPolar];
-	for (var i = 0; i < coordinateArr.length; i++) {
-		var co = coordinateArr[i];
-		co.addCurveSet(co.parameters, 0, 1);
-		co.addCurveSet(co.parameters, 1, 0);
-	}
-	
-	// add Coordinate and axis arguments to Curve, or maybe a global CoordinateMode variable?
-	// add parameter as option for Curve arguments
-	var xFunc = (x) => x;
-	var yFunc = (y) => 10*sin(10*y/30);
+// 	var coordinateArr = [cartesian, polar, parabolic, neat, wavyPolar];
+// 	for (var i = 0; i < coordinateArr.length; i++) {
+// 		var co = coordinateArr[i];
+// 		co.addCurveSet(co.parameters, 0, 1);
+// 		co.addCurveSet(co.parameters, 1, 0);
+// 	}
 	
 	var co = polar;
 	var p = co.parameters;
 	
-	testCurve = new Curve(1000, 0, 30*TWO_PI, xFunc, yFunc);
-	// testCurve.map('y', testCurve.getMin('y'), testCurve.getMax('y'), p[1].start, p[1].stop);
+	var xFunc = (x) => x;
+	var yFunc = (y) => 100*sin(10*y/30);
 	
-	initialCurve = new Curve(testCurve.numSteps, testCurve.start, testCurve.stop, testCurve.func1, testCurve.func2);
-	initialCurve.map('y', initialCurve.getMin('y'), initialCurve.getMax('y'), p[1].start, p[1].stop);
+	var p1 = new CoordinateParameter(xFunc, 0, 30*TWO_PI);
+	var p2 = new CoordinateParameter(yFunc, -100, 100);
+	// p2 range currently doesn't contribute
+	testCurve = new Curve(1000, [p1,p2]);
+	// map along x-axis
+	testCurve.map(0, 0, 200);
+	// map along y-axis
+	// testCurve.map(1, 0, TWO_PI);
 	
-	// testCurve.transform(p[0].func, p[1].func);
+	testCurve.transform(p[0].func, p[1].func);
+	var xCartInverse = (x, y) => sqrt(sq(x) + sq(y));
+	var yCartInverse = (x, y) => atan(y/x);
+	testCurve.transform(xCartInverse, yCartInverse);
+	// add inverse functions to transform back to original coordinates
+	// testCurve.transform(cartesian.parameters[0].func, cartesian.parameters[1].func);
+	testCurve.map(0, -200, 200);
 	
-	// noLoop();
-	tSetup = millis();
+	noLoop();
+	// tSetup = millis();
 	
 }
 
@@ -74,71 +81,26 @@ function draw() {
 	pop();
 	
 	/////////////////////////////////////////
-	var co = polar;
-	var p = co.parameters;
+// 	var t = millis() - tSetup;
 	
-	var xFinalArr = [];
-	var yFinalArr = [];
-	for (var i = 0; i < initialCurve.vertices.length; i++) {
-		xFinalArr.push(p[0].func(initialCurve.vertices[i].x, initialCurve.vertices[i].y));
-		yFinalArr.push(p[1].func(initialCurve.vertices[i].x, initialCurve.vertices[i].y));
-	}
-	
-	var t = millis() - tSetup;
-	
-	// n = number of keyframes that get animated per iteration
-	var n = 120;
-	var iterations = 2;
-	var fpKeyframe = 1;
-	var frameTotal = n*fpKeyframe*iterations;
-	if (frameCount <= frameTotal) {
-		
-		// count = [0, (n*iterations - 1)] = [1, (frameTotal/fpKeyframe - 1)]
-		var count = floor((frameCount-1)/fpKeyframe);
-		
-		// keyframe = [0, n-1]
-		var keyframe = count % n;
-		
-		var xValArr = [];
-		var yValArr = [];
-		for (var i = 0; i < initialCurve.vertices.length; i++) {
-			var vertex = initialCurve.vertices[i];
-			xValArr.push(vertex.x + keyframe*(xFinalArr[i]-vertex.x)/(n-1));
-			yValArr.push(vertex.y + keyframe*(yFinalArr[i]-vertex.y)/(n-1));
-		}
-	
-		newCurve = new Curve(initialCurve.numSteps, initialCurve.start, initialCurve.stop, initialCurve.func1, initialCurve.func2);
-		
-		// doesn't show mappings
-		// newCurve.render();
-	
-		for (var i = 0; i < newCurve.vertices.length; i++){
-			newCurve.vertices[i].x = xValArr[i];
-			newCurve.vertices[i].y = yValArr[i];
-		}
-	}
-	
-	newCurve.render();
-	
+	// newCurve = testCurve.animate(polar, 3, 2, 60);
+	// newCurve.render();
 //////////////////////////////////////////////
 // 	parabolic.render();
 	// polar.render();
 	// wavyPolar.render();
 // 	cartesian.render();
 	// neat.render();
-	// testCurve.render();
+	testCurve.render();
 //////////////////////////////////////////////	
 
 }
 
 // arguments: (required: numSteps, required: start, required: stop)
-var CoordinateParameter = function(func, numSteps, start, stop) {
+var CoordinateParameter = function(func, start, stop) {
 	
 	// function used for transformations
 	this.func = func;
-	
-	// incremented value for coordinate line calculations, number of curves will be (numSteps+1)
-	this.numSteps = numSteps;
 
 	// new coordinate range to map to, i.e. theta=[0,TWO_PI] in polar coordinates
 	this.start = start;
@@ -146,8 +108,26 @@ var CoordinateParameter = function(func, numSteps, start, stop) {
 
 }
 
-CoordinateParameter.prototype.getStepSize = function() {
-	return (this.stop - this.start)/this.numSteps;
+// use dict instead once nVector library is added
+var getDimensionProperty = function(dimension) {
+	
+	var property;
+	switch(dimension) {
+		case 0:
+			property = 'x';
+			break;
+		case 1:
+			property = 'y';
+			break;
+		case 2:
+			property = 'z';
+			break;
+		default:
+			property = 'x';
+	}
+	
+	return property;
+	
 }
 
 var transform = function(vertex, xFunc, yFunc) {
@@ -157,89 +137,220 @@ var transform = function(vertex, xFunc, yFunc) {
 	
 	vertex.x = x;
 	vertex.y = y;
+	
 	return vertex;
 	
 }
 
-var Curve = function(numSteps, start, stop, func1, func2, param) {
+var Curve = function(numSteps, paramArr, param) {
 	
-	// pass in parameter as argument instead?? then change to parameter attributes and methods
+	// incremented value for coordinate line calculations, number of curves will be (numSteps+1)
 	this.numSteps = numSteps;
-	this.start = start;
-	this.stop = stop;
 	
-	this.func1 = func1;
-	this.func2 = func2;
+	this.parameters = paramArr;
 	
-	this.setVertices(func1, func2, param);
+	this.vertices = [];
+	this.setVertices(param);
+	
+	this.mappings = [];
+	// create array of Mapping objects, one for each parameter
+	for (var i = 0; i < this.parameters.length; i++) {
+		this.mappings.push(new Mapping());
+	}
+	
+	this.transformations = [];
+
+	// // includes mappings, transformations
+	// this.updates = [];
+	this.needsUpdate;
 	
 }
 
-Curve.prototype.getStepSize = function() {
-	return (this.stop - this.start)/this.numSteps;
+Curve.prototype.getStepSize = function(dimension) {
+	var parameter = this.parameters[dimension];
+	return (parameter.stop - parameter.start)/this.numSteps;
 }
-Curve.prototype.getControlStart = function() {
-	return this.start - this.getStepSize();
+Curve.prototype.getControlStart = function(dimension) {
+	var parameter = this.parameters[dimension];
+	return parameter.start - this.getStepSize(dimension);
 }
-Curve.prototype.getControlStop = function() {
-	return this.stop + this.getStepSize();
+Curve.prototype.getControlStop = function(dimension) {
+	var parameter = this.parameters[dimension];
+	return parameter.stop + this.getStepSize(dimension);
 }
 
-Curve.prototype.getMin = function(property) {
+Curve.prototype.setVertices = function(param) {
+	
+	for (var i = this.getControlStart(0); i <= this.getControlStop(0); i += this.getStepSize(0)) {
+		
+		if (param) { param.val = i; }
+		
+		var coordinate = createVector(this.parameters[0].func(i), this.parameters[1].func(i));
+		this.vertices.push(coordinate);
+		
+	}
+	
+}
+
+Curve.prototype.getMin = function(dimension) {
+	var property = getDimensionProperty(dimension);
 	var propertyArr = this.vertices.map(vertex => vertex[property]);
 	return min(propertyArr);
 }
-Curve.prototype.getMax = function(property) {
+Curve.prototype.getMax = function(dimension) {
+	var property = getDimensionProperty(dimension);
 	var propertyArr = this.vertices.map(vertex => vertex[property]);
 	return max(propertyArr);
 }
 
-Curve.prototype.setVertices = function(func1, func2, param) {
+var Mapping = function() {
 	
-	this.vertices = [];
+	this.startInitial;
+	this.stopInitial;
+	this.startFinal;
+	this.stopFinal;
 	
-	for (var i = this.getControlStart(); i <= this.getControlStop(); i += this.getStepSize()) {
-		if (param) {
-			param.val = i;
-		}
-		var coordinate = createVector(func1(i), func2(i));
-		this.vertices.push(coordinate);
-	}
+	this.needsUpdate;
 	
 }
 
-Curve.prototype.map = function(property, start, stop, newStart, newStop) {
-	
-	for (var i = 0; i < this.vertices.length; i++) {
-		var vertex = this.vertices[i];			 
-		vertex[property] = map(vertex[property], start, stop, newStart, newStop);
-	}
-	
-	return this.vertices;
-	
-}
-
-Curve.prototype.transform = function(func1, func2) {
-	
-	for (var i = 0; i < this.vertices.length; i++) {
-		this.vertices[i] = transform(this.vertices[i], func1, func2);
-	}
-	
-	return this.vertices;
-	
-}
-
-// arguments: (showVertices: bool - should vertices be displayed?)
-Curve.prototype.render = function(showVertices) {
-
-	noFill();
-	beginShape();
-	
-	// control points included as curve vertices
-	for (var i = 0; i < this.vertices.length; i++) {
-		curveVertex(this.vertices[i].x, this.vertices[i].y);
+// only one mapping can be added per dimension. If .map() is called more than once before rendering, only the last call will do anything. Should this be changed, to allow chained mappings for a single dimension?
+Curve.prototype.map = function(dimension, newStart, newStop) {
 		
-		if (showVertices == true) {
+	var mapping = this.mappings[dimension];
+	
+	mapping.startInitial = this.getMin(dimension);
+	mapping.stopInitial = this.getMax(dimension);
+	mapping.startFinal = newStart;
+	mapping.stopFinal = newStop;
+	
+	mapping.needsUpdate = true;
+	this.needsUpdate = true;
+	
+}
+
+var Transformation = function(funcArr) {
+	
+	this.funcArr = funcArr;
+	
+	this.needsUpdate = true;
+	
+}
+
+Curve.prototype.transform = function(func) {
+	
+	var funcArr = [...arguments];
+	
+	while (funcArr.length < this.parameters.length) {
+		var newFunc = (x) => x;
+		funcArr.push(newFunc);
+	}
+	
+	this.transformations.push(new Transformation(funcArr));
+	
+	this.needsUpdate = true;
+	
+}
+
+Curve.prototype.updateVertices = function() {
+	
+	// add mappings
+	for (var i = 0; i < this.mappings.length; i++) {
+		// only update in dimensions where mappings have been changed
+		if (this.mappings[i].needsUpdate) {
+			
+			var property = getDimensionProperty(i);
+			var mapping = this.mappings[i];
+			
+			// update vertices
+			for (var j = 0; j < this.vertices.length; j++) {
+				var vertex = this.vertices[j];			 
+				vertex[property] = map(vertex[property], mapping.startInitial, mapping.stopInitial, mapping.startFinal, mapping.stopFinal);
+			}
+			
+			this.mappings[i].needsUpdate = false;
+		}
+	}
+	
+	// add transformations
+	for (var i = 0; i < this.transformations.length; i++) {
+		if (this.transformations[i].needsUpdate) {
+			
+			var transformation = this.transformations[i];
+			
+			// update vertices
+			for (var j = 0; j < this.vertices.length; j++) {
+				var vertex = this.vertices[j];
+				vertex = transform(vertex, ...transformation.funcArr);
+			}
+			
+			this.transformations.needsUpdate = false;			
+		}
+	}
+}
+
+Curve.prototype.animate = function(coordinate, n, iterations, fpKeyframe) {
+	
+	var p = coordinate.parameters;
+	
+	// n = number of keyframes that get animated per iteration
+	
+	// set default
+	if (!fpKeyframe) {
+		fpKeyframe = 1;
+	}
+
+	var newCurve = new Curve(this.numSteps, this.start, this.stop, this.func1, this.func2);
+	
+	var xFinalArr = [];
+	var yFinalArr = [];
+	for (var i = 0; i < this.vertices.length; i++) {
+		xFinalArr.push(p[0].func(this.vertices[i].x, this.vertices[i].y));
+		yFinalArr.push(p[1].func(this.vertices[i].x, this.vertices[i].y));
+	}
+	
+	var frameTotal = n*fpKeyframe*iterations;
+	
+	var getKeyframe = function(frameCountVal) {
+		
+		// final keyframe persists after animation is complete
+		if (frameCountVal > frameTotal) {
+			frameCountVal = frameTotal;
+		}
+		
+		// count = [0, (n*iterations - 1)] = [1, (frameTotal/fpKeyframe - 1)]
+		var count = floor((frameCountVal-1)/fpKeyframe);
+		
+		// keyframe = [0, n-1]
+		return count % n;
+		
+	}
+	
+	var keyframe = getKeyframe(frameCount);
+
+	var xValArr = [];
+	var yValArr = [];
+	for (var i = 0; i < this.vertices.length; i++) {
+		var vertex = this.vertices[i];
+		xValArr.push(vertex.x + keyframe*(xFinalArr[i]-vertex.x)/(n-1));
+		yValArr.push(vertex.y + keyframe*(yFinalArr[i]-vertex.y)/(n-1));
+	}
+
+	// doesn't show mappings
+	// newCurve.render();
+
+	for (var i = 0; i < newCurve.vertices.length; i++){
+		newCurve.vertices[i].x = xValArr[i];
+		newCurve.vertices[i].y = yValArr[i];
+	}
+	
+	return newCurve;
+	
+}
+
+Curve.prototype.showVertices = function() {
+	
+	for (var i = 0; i < this.vertices.length; i++) {
 			// add circles marking vertices
 			push();
 			if (i > 0 && i < this.vertices.length-1){
@@ -247,8 +358,7 @@ Curve.prototype.render = function(showVertices) {
 			}
 			pop();
 		}
-	}
-	if (showVertices == true) {
+		
 		// add circles marking control points with different style
 		push();
 		fill(255, 0, 0);
@@ -257,6 +367,26 @@ Curve.prototype.render = function(showVertices) {
 		ellipse(controlPoint1.x, controlPoint1.y, 8, 8);
 		ellipse(controlPoint2.x, controlPoint2.y, 8, 8);
 		pop();
+	
+}
+
+// arguments: (showVertices: bool - should vertices be displayed?)
+Curve.prototype.render = function(showVertices) {
+	
+	if (this.needsUpdate) {
+		this.updateVertices();
+	}
+	
+	noFill();
+	beginShape();
+	
+	// control points included as curve vertices
+	for (var i = 0; i < this.vertices.length; i++) {
+		curveVertex(this.vertices[i].x, this.vertices[i].y);
+	}
+	
+	if (showVertices) {
+		this.showVertices();
 	}
 	
 	endShape();
