@@ -1,5 +1,5 @@
 var cartesian, polar, parabolic, neat, wavyPolar;
-var testCurve, newCurve;
+var testCurve;
 var tSetup;
 function setup() {
 	
@@ -43,8 +43,10 @@ function setup() {
 	var co = polar;
 	var p = co.parameters;
 	
+	// var xFunc = (x) => 100;
 	var xFunc = (x) => x;
 	var yFunc = (y) => 100*sin(10*y/30);
+	// var yFunc = (y) => y;
 	
 	var p1 = new CoordinateParameter(xFunc, 0, 30*TWO_PI);
 	var p2 = new CoordinateParameter(yFunc, -100, 100);
@@ -53,16 +55,10 @@ function setup() {
 	// map along x-axis
 	testCurve.map(0, 0, 200);
 	// map along y-axis
-	// testCurve.map(1, 0, TWO_PI);
+	testCurve.map(1, 0, TWO_PI);
 	
 	testCurve.transform(p[0].func, p[1].func);
-	var xCartInverse = (x, y) => sqrt(sq(x) + sq(y));
-	var yCartInverse = (x, y) => atan(y/x);
-	testCurve.transform(xCartInverse, yCartInverse);
-	// add inverse functions to transform back to original coordinates
-	// testCurve.transform(cartesian.parameters[0].func, cartesian.parameters[1].func);
-	testCurve.map(0, -200, 200);
-	
+
 	noLoop();
 	// tSetup = millis();
 	
@@ -153,15 +149,12 @@ var Curve = function(numSteps, paramArr, param) {
 	this.setVertices(param);
 	
 	this.mappings = [];
-	// create array of Mapping objects, one for each parameter
-	for (var i = 0; i < this.parameters.length; i++) {
-		this.mappings.push(new Mapping());
-	}
-	
 	this.transformations = [];
 
-	// // includes mappings, transformations
-	// this.updates = [];
+	// will include new mappings, transformations
+	this.updates = [];
+	
+	this.updateIndex = 0;
 	this.needsUpdate;
 	
 }
@@ -192,49 +185,55 @@ Curve.prototype.setVertices = function(param) {
 	
 }
 
-Curve.prototype.getMin = function(dimension) {
+Curve.prototype.getPropertyArray = function(dimension) {
+	
 	var property = getDimensionProperty(dimension);
-	var propertyArr = this.vertices.map(vertex => vertex[property]);
+	var arr = this.vertices.map(vertex => vertex[property]);
+	// remove control points from array
+	arr.shift();
+	arr.pop();
+	
+	return arr;
+}
+
+Curve.prototype.getMin = function(dimension) {
+	var propertyArr = this.getPropertyArray(dimension);
 	return min(propertyArr);
 }
 Curve.prototype.getMax = function(dimension) {
-	var property = getDimensionProperty(dimension);
-	var propertyArr = this.vertices.map(vertex => vertex[property]);
+	var propertyArr = this.getPropertyArray(dimension);
 	return max(propertyArr);
 }
 
-var Mapping = function() {
+var Mapping = function(dimension, startInitial, stopInitial, startFinal, stopFinal) {
 	
-	this.startInitial;
-	this.stopInitial;
-	this.startFinal;
-	this.stopFinal;
-	
-	this.needsUpdate;
+	this.dimension = dimension;
+	this.startInitial = startInitial;
+	this.stopInitial = stopInitial;
+	this.startFinal = startFinal;
+	this.stopFinal = stopFinal;
 	
 }
 
-// only one mapping can be added per dimension. If .map() is called more than once before rendering, only the last call will do anything. Should this be changed, to allow chained mappings for a single dimension?
 Curve.prototype.map = function(dimension, newStart, newStop) {
+	
+	var initStart = this.getMin(dimension);
+	var initStop = this.getMax(dimension);
+	
+	if (initStart != initStop) {
+	
+		var mapping = new Mapping(dimension, initStart, initStop, newStart, newStop);
+
+		this.mappings.push(mapping);
+
+		this.updates.push({type: 'mapping', updateObject: mapping});
+		this.needsUpdate = true;
 		
-	var mapping = this.mappings[dimension];
-	
-	mapping.startInitial = this.getMin(dimension);
-	mapping.stopInitial = this.getMax(dimension);
-	mapping.startFinal = newStart;
-	mapping.stopFinal = newStop;
-	
-	mapping.needsUpdate = true;
-	this.needsUpdate = true;
-	
+	}
 }
 
 var Transformation = function(funcArr) {
-	
 	this.funcArr = funcArr;
-	
-	this.needsUpdate = true;
-	
 }
 
 Curve.prototype.transform = function(func) {
@@ -246,47 +245,58 @@ Curve.prototype.transform = function(func) {
 		funcArr.push(newFunc);
 	}
 	
-	this.transformations.push(new Transformation(funcArr));
+	var transformation = new Transformation(funcArr);
+	this.transformations.push(transformation);
 	
+	this.updates.push({type: 'transformation', updateObject: transformation});
 	this.needsUpdate = true;
 	
 }
 
+Curve.prototype.updateFromMapping = function(mapping) {
+	
+	var property = getDimensionProperty(mapping.dimension);
+	// update vertices
+	for (var i = 0; i < this.vertices.length; i++) {
+		var vertex = this.vertices[i];			 
+		vertex[property] = map(vertex[property], mapping.startInitial, mapping.stopInitial, mapping.startFinal, mapping.stopFinal);
+	}
+	
+}
+
+Curve.prototype.updateFromTransformation = function(transformation) {
+	// update vertices
+	for (var j = 0; j < this.vertices.length; j++) {
+		var vertex = this.vertices[j];
+		vertex = transform(vertex, ...transformation.funcArr);
+	}
+}
+
 Curve.prototype.updateVertices = function() {
 	
-	// add mappings
-	for (var i = 0; i < this.mappings.length; i++) {
-		// only update in dimensions where mappings have been changed
-		if (this.mappings[i].needsUpdate) {
+	if (this.needsUpdate) {
+		
+		for (var i = this.updateIndex; i < this.updates.length; i++) {
 			
-			var property = getDimensionProperty(i);
-			var mapping = this.mappings[i];
-			
-			// update vertices
-			for (var j = 0; j < this.vertices.length; j++) {
-				var vertex = this.vertices[j];			 
-				vertex[property] = map(vertex[property], mapping.startInitial, mapping.stopInitial, mapping.startFinal, mapping.stopFinal);
+			var update = this.updates[i];
+			switch(update.type) {
+				case 'mapping':
+					var mapping = update.updateObject;
+					this.updateFromMapping(mapping);
+					break;
+				case 'transformation':
+					var transformation = update.updateObject;
+					this.updateFromTransformation(transformation);
+					break;
+				default:
+					break;
 			}
 			
-			this.mappings[i].needsUpdate = false;
 		}
+		this.updateIndex = this.updates.length;
+		this.needsUpdate = false;
 	}
 	
-	// add transformations
-	for (var i = 0; i < this.transformations.length; i++) {
-		if (this.transformations[i].needsUpdate) {
-			
-			var transformation = this.transformations[i];
-			
-			// update vertices
-			for (var j = 0; j < this.vertices.length; j++) {
-				var vertex = this.vertices[j];
-				vertex = transform(vertex, ...transformation.funcArr);
-			}
-			
-			this.transformations.needsUpdate = false;			
-		}
-	}
 }
 
 Curve.prototype.animate = function(coordinate, n, iterations, fpKeyframe) {
@@ -335,9 +345,6 @@ Curve.prototype.animate = function(coordinate, n, iterations, fpKeyframe) {
 		xValArr.push(vertex.x + keyframe*(xFinalArr[i]-vertex.x)/(n-1));
 		yValArr.push(vertex.y + keyframe*(yFinalArr[i]-vertex.y)/(n-1));
 	}
-
-	// doesn't show mappings
-	// newCurve.render();
 
 	for (var i = 0; i < newCurve.vertices.length; i++){
 		newCurve.vertices[i].x = xValArr[i];
