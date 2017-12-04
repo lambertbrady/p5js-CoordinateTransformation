@@ -1,5 +1,5 @@
 var cartesian, polar, parabolic, neat, wavyPolar;
-var testCurve;
+var testCurve, newCurve;
 var tSetup;
 function setup() {
 	
@@ -33,12 +33,16 @@ function setup() {
 // 	wavyPolar.addParameter(xFuncWavyPolar, 10, 0, height/2);
 // 	wavyPolar.addParameter(yFuncWavyPolar, 40, 0, TWO_PI);
 	
-// 	var coordinateArr = [cartesian, polar, parabolic, neat, wavyPolar];
-// 	for (var i = 0; i < coordinateArr.length; i++) {
-// 		var co = coordinateArr[i];
-// 		co.addCurveSet(co.parameters, 0, 1);
-// 		co.addCurveSet(co.parameters, 1, 0);
-// 	}
+	// var coordinateArr = [cartesian, polar, parabolic, neat, wavyPolar];
+	// for (var i = 0; i < coordinateArr.length; i++) {
+	// 	var co = coordinateArr[i];
+	// 	co.addCurveSet(50, co.parameters, 0, 1);
+	// 	co.addCurveSet(50, co.parameters, 1, 0);
+	// }
+	cartesian.addCurveSet(20, cartesian.parameters, 0, 1);
+	cartesian.addCurveSet(20, cartesian.parameters, 1, 0);
+	polar.addCurveSet(20, polar.parameters, 0, 1);
+	polar.addCurveSet(10, polar.parameters, 1, 0);
 	
 	var co = polar;
 	var p = co.parameters;
@@ -82,10 +86,10 @@ function draw() {
 	// newCurve = testCurve.animate(polar, 3, 2, 60);
 	// newCurve.render();
 //////////////////////////////////////////////
-// 	parabolic.render();
+	// parabolic.render();
 	// polar.render();
 	// wavyPolar.render();
-// 	cartesian.render();
+	cartesian.render();
 	// neat.render();
 	testCurve.render();
 //////////////////////////////////////////////	
@@ -172,15 +176,34 @@ Curve.prototype.getControlStop = function(dimension) {
 	return parameter.stop + this.getStepSize(dimension);
 }
 
+// needs refactoring
 Curve.prototype.setVertices = function(param) {
+
+	if (param) {
+		
+		var stepSize = (param.stop - param.start)/this.numSteps;
+		var controlStart = param.start - stepSize;
+		var controlStop = param.stop + stepSize;
+		// need function for each dimension, in order
+		var xFunc = (x) => this.parameters[0].val;
+		var yFunc = (y) => this.parameters[1].val;
+		
+		for (var i = controlStart; i <= controlStop; i += stepSize) {
+			param.val = i;
+			// need dynamic vector size for multile dimensions
+			var coordinate = createVector(xFunc(i), yFunc(i));
+			this.vertices.push(coordinate);
+		}
+		
+	} else {
 	
-	for (var i = this.getControlStart(0); i <= this.getControlStop(0); i += this.getStepSize(0)) {
-		
-		if (param) { param.val = i; }
-		
-		var coordinate = createVector(this.parameters[0].func(i), this.parameters[1].func(i));
-		this.vertices.push(coordinate);
-		
+		// curve that's not part of a curveSet only has one dimension, so always 0 for get values - change or remove dimension requirement for methods
+		for (var i = this.getControlStart(0); i <= this.getControlStop(0); i += this.getStepSize(0)) {
+
+			var coordinate = createVector(this.parameters[0].func(i), this.parameters[1].func(i));
+			this.vertices.push(coordinate);
+
+		}
 	}
 	
 }
@@ -309,8 +332,9 @@ Curve.prototype.animate = function(coordinate, n, iterations, fpKeyframe) {
 	if (!fpKeyframe) {
 		fpKeyframe = 1;
 	}
-
-	var newCurve = new Curve(this.numSteps, this.start, this.stop, this.func1, this.func2);
+	
+	var newCurve = new Curve(this.numSteps, coordinate.parameters);
+	// var newCurve = new Curve(this.numSteps, this.start, this.stop, this.func1, this.func2);
 	
 	var xFinalArr = [];
 	var yFinalArr = [];
@@ -400,14 +424,15 @@ Curve.prototype.render = function(showVertices) {
 	
 }
 
-var CurveSet = function(paramArr, varyingParamIndex, constantParamIndex) {
-	
+var CurveSet = function(numCurves, paramArr, varyingParamIndex, constantParamIndex) {
+	this.numCurves = numCurves;
 	this.parameters = paramArr;
 	
 	this.varyingParam = paramArr[varyingParamIndex];
 	this.constantParams = [];
 	this.transformParams = [];
-	for (var i = 2; i < arguments.length; i++) {
+	// find better way to do this, since i needs to be changed when number of arguments changes (indexOf constantParamIndex)
+	for (var i = 3; i < arguments.length; i++) {
 		
 		this.constantParams.push(paramArr[arguments[i]]);
 		
@@ -431,14 +456,14 @@ CurveSet.prototype.setCurves = function(i) {
 	
 	var transformParamIndex = this.parameters.indexOf(this.transformParams[i]);
 	var parameter = this.parameters[transformParamIndex];
-	
-	var step = parameter.getStepSize();
-	var condition = parameter.stop + step;
-	parameter.val = parameter.start - step;
+
+	var step = (parameter.stop - parameter.start)/this.numCurves;
+	var condition = parameter.stop;
+	parameter.val = parameter.start;
 	
 	// recursion loop acting as dynamically nested for loops, where number of for loops is determined by length of transformParams array
 	while (parameter.val <= condition) {
-
+		
 		// second to last loop
 		if (i == this.transformParams.length-2) {
 			
@@ -446,9 +471,8 @@ CurveSet.prototype.setCurves = function(i) {
 			var transformParam = this.parameters[transformParamIndex];
 			
 			// innermost loop
-			var xFunc = (x) => this.parameters[0].val;
-			var yFunc = (y) => this.parameters[1].val;
-			var curve = new Curve(transformParam.numSteps, transformParam.start, transformParam.stop, xFunc, yFunc, transformParam);
+			// add dynamic numSteps value
+			var curve = new Curve(10, this.parameters, transformParam);
 			curve.transform(this.parameters[0].func, this.parameters[1].func);
 			
 			curves.push(curve);
@@ -459,10 +483,6 @@ CurveSet.prototype.setCurves = function(i) {
 
 		parameter.val += step;
 	}
-
-	//remove first and last curves, which are made up of control points and shouldn't be included
-	curves.shift();
-	curves.pop();
 	
 	this.curves = curves;
 	return curves;
@@ -505,23 +525,23 @@ Coordinate.prototype.setDefault = function(coordinateType) {
 		
 		var xFunc = (x, y) => x;
 		var yFunc = (x, y) => y;
-		this.addParameter(xFunc, 40, -width/2, width/2);
-		this.addParameter(yFunc, 40, -height/2, height/2);
+		this.addParameter(xFunc, -width/2, width/2);
+		this.addParameter(yFunc, -height/2, height/2);
 		
 	} else if (coordinateType == 'polar') {
 
 		var xFunc = (x, y) => x*cos(y);
 		var yFunc = (x, y) => x*sin(y);
-		this.addParameter(xFunc, 10, 0, height/2);
-		this.addParameter(yFunc, 48, 0, TWO_PI);
+		this.addParameter(xFunc, 0, height/2);
+		this.addParameter(yFunc, 0, TWO_PI);
 		
 	} else if (coordinateType == 'parabolic') {
 		
 		var scalefactor = .0035;
 		var xFunc = (x, y) => scalefactor*( x*y );
 		var yFunc = (x, y) => scalefactor*( (sq(y)-sq(x))/2 );
-		this.addParameter(xFunc, 30, -width/2, width/2);
-		this.addParameter(yFunc, 30, -width/2, width/2);
+		this.addParameter(xFunc, -width/2, width/2);
+		this.addParameter(yFunc, -width/2, width/2);
 		
 	}
 	
@@ -529,13 +549,13 @@ Coordinate.prototype.setDefault = function(coordinateType) {
 
 // 1 argument: (required: CoordinateParameter object)
 // OR 4 arguments: (required: numSteps, required: start, required: stop)
-Coordinate.prototype.addParameter = function(func, numSteps, start, stop) {
+Coordinate.prototype.addParameter = function(func, start, stop) {
 
 	if (arguments.length == 1) {
 		// if only one argument is given, it will be a CoordinateParameter object
 		var parameter = arguments[0];
 	} else {
-		var parameter = new CoordinateParameter(func, numSteps, start, stop);
+		var parameter = new CoordinateParameter(func, start, stop);
 	}
 	
 	this.parameters.push(parameter);
@@ -543,10 +563,10 @@ Coordinate.prototype.addParameter = function(func, numSteps, start, stop) {
 }
 
 // arguments: (required: paramArr, required: varyingParamIndex, optional: constantParamIndex - add any number parameter indeces)
-Coordinate.prototype.addCurveSet = function(paramArr, varyingParamIndex, constantParamIndex) {
+Coordinate.prototype.addCurveSet = function(numCurves, paramArr, varyingParamIndex, constantParamIndex) {
 	
 	var curveSet = new CurveSet(...arguments);
-
+	
 	this.curveSets.push(curveSet);
 	return curveSet;
 }
