@@ -5,5 +5,5 @@ Check it out on CodePen: https://codepen.io/bradylambert/pen/JrpgWM
 
 
 ## Future
-* More controlled animation, including (hopefully) smooth animations between two separate coordinate systems.
+* More controlled animation, including (hopefully) smooth animations between two separate coordinate systems. See this version for an example: https://codepen.io/bradylambert/pen/qPzMJq
 * User interaction, potentially using methods similar to this ControllableCurve demonstration: https://codepen.io/bradylambert/pen/mBeWPW
