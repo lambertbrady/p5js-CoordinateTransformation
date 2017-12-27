@@ -13,44 +13,43 @@ function setup() {
 	polar = new Coordinate('polar');
 	parabolic = new Coordinate('parabolic');
 
-// 	// NEAT THING //
-// 	var xFuncNeat = (x, y) => .9*(x*y/250 + 10*cos(x/2)*sin(x/2));
-// 	var yFuncNeat = (x, y) => .9*(-.004*sq(x) + 2*cos(y)) + height/2.2;
-// 	var xParamNeat = new CoordinateParameter(xFuncNeat, 50, -width/2, width/2);
-// 	var yParamNeat = new CoordinateParameter(yFuncNeat, 50, 10, height/1.8);
-// 	neat = new Coordinate(xParamNeat, yParamNeat);
+	// NEAT THING //
+	var xFuncNeat = (x, y) => .9*(x*y/250 + 10*cos(x/2)*sin(x/2));
+	var yFuncNeat = (x, y) => .9*(-.004*sq(x) + 2*cos(y)) + height/2.2;
+	var xParamNeat = new CoordinateParameter(xFuncNeat, -width/2, width/2);
+	var yParamNeat = new CoordinateParameter(yFuncNeat, 10, height/1.8);
+	neat = new Coordinate(xParamNeat, yParamNeat);
 	
-// 	// WAVY POLAR //
-// 	var amp = 0;
-// 	var n = 1;
-// 	var fx1 = (x,y) => amp*cos(n*y) + x;
-// 	var fy1 = (x,y) => .3*sin(x)+y;
-// 	var fx2 = (x,y) => x*cos(y);
-// 	var fy2 = (x,y) => x*sin(y);
-// 	var xFuncWavyPolar = (x,y) => fx2(fx1(x,y),fy1(x,y));
-// 	var yFuncWavyPolar = (x,y) => fy2(fx1(x,y),fy1(x,y));
-// 	wavyPolar = new Coordinate();
-// 	wavyPolar.addParameter(xFuncWavyPolar, 10, 0, height/2);
-// 	wavyPolar.addParameter(yFuncWavyPolar, 40, 0, TWO_PI);
+	// WAVY POLAR //
+	var amp = 10;
+	var n = 5;
+	var fx1 = (x,y) => amp*cos(n*y) + x;
+	var fy1 = (x,y) => .3*sin(x)+y;
+	var fx2 = (x,y) => x*cos(y);
+	var fy2 = (x,y) => x*sin(y);
+	var xFuncWavyPolar = (x,y) => fx2(fx1(x,y),fy1(x,y));
+	var yFuncWavyPolar = (x,y) => fy2(fx1(x,y),fy1(x,y));
+	wavyPolar = new Coordinate();
+	wavyPolar.addParameter(xFuncWavyPolar, 0, height/2);
+	wavyPolar.addParameter(yFuncWavyPolar, 0, TWO_PI);
 	
-	// var coordinateArr = [cartesian, polar, parabolic, neat, wavyPolar];
-	// for (var i = 0; i < coordinateArr.length; i++) {
-	// 	var co = coordinateArr[i];
-	// 	co.addCurveSet(50, co.parameters, 0, 1);
-	// 	co.addCurveSet(50, co.parameters, 1, 0);
-	// }
+	// needs to be simplified
 	cartesian.addCurveSet(20, cartesian.parameters, 0, 1);
 	cartesian.addCurveSet(20, cartesian.parameters, 1, 0);
 	polar.addCurveSet(20, polar.parameters, 0, 1);
-	polar.addCurveSet(10, polar.parameters, 1, 0);
+	polar.addCurveSet(20, polar.parameters, 1, 0);
+	parabolic.addCurveSet(50, parabolic.parameters, 0, 1);
+	parabolic.addCurveSet(50, parabolic.parameters, 1, 0);
+	neat.addCurveSet(50, neat.parameters, 0, 1);
+	neat.addCurveSet(50, neat.parameters, 1, 0);
+	wavyPolar.addCurveSet(20, wavyPolar.parameters, 0, 1);
+	wavyPolar.addCurveSet(20, wavyPolar.parameters, 1, 0);
 	
 	var co = polar;
 	var p = co.parameters;
 	
-	// var xFunc = (x) => 100;
 	var xFunc = (x) => x;
 	var yFunc = (y) => 100*sin(10*y/30);
-	// var yFunc = (y) => y;
 	
 	var p1 = new CoordinateParameter(xFunc, 0, 30*TWO_PI);
 	var p2 = new CoordinateParameter(yFunc, -100, 100);
@@ -63,8 +62,8 @@ function setup() {
 	
 	testCurve.transform(p[0].func, p[1].func);
 
-	noLoop();
-	// tSetup = millis();
+	// noLoop();
+	tSetup = millis();
 	
 }
 
@@ -81,18 +80,27 @@ function draw() {
 	pop();
 	
 	/////////////////////////////////////////
-// 	var t = millis() - tSetup;
+	var t = millis() - tSetup;
+	var tStep = 2500;
+	var tMod = (t/tStep) % 6;
+	
+	if (tMod >= 0 && tMod < 1) {
+		parabolic.render();
+	} else if (tMod >= 1 && tMod < 2) {
+		polar.render();
+	} else if (tMod >= 2 && tMod < 3) {
+		wavyPolar.render();
+	} else if (tMod >= 3 && tMod < 4) {
+		cartesian.render();
+	} else if (tMod >= 4 && tMod < 5) {
+		neat.render();
+	} else if (tMod >= 5 && tMod < 6) {
+		testCurve.render();
+	}
 	
 	// newCurve = testCurve.animate(polar, 3, 2, 60);
 	// newCurve.render();
 //////////////////////////////////////////////
-	// parabolic.render();
-	// polar.render();
-	// wavyPolar.render();
-	cartesian.render();
-	// neat.render();
-	testCurve.render();
-//////////////////////////////////////////////	
 
 }
 
